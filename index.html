@@ -1064,8 +1064,8 @@ let emojiTargetIdx = null;
 
 function openMemberModal(){
   draftMembers = MEMBERS.map(m => ({...m}));
+  closeEmojiFloat();
   renderMemberList();
-  document.getElementById('emoji-picker-wrap').style.display = 'none';
   document.getElementById('member-modal').classList.add('open');
 }
 
