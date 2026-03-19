@@ -250,10 +250,12 @@ select option{background:var(--surface2);}
   cursor:pointer;font-family:'Noto Sans TC',sans-serif;margin-top:12px;transition:all .2s;
   -webkit-tap-highlight-color:transparent;}
 .btn-add-member:hover{background:rgba(245,166,35,.15);}
-.emoji-picker{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;
-  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
-  padding:8px;margin-top:6px;}
-.emoji-opt{font-size:20px;text-align:center;cursor:pointer;padding:4px;border-radius:4px;
+.emoji-picker-float{position:fixed;z-index:500;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+  width:280px;max-height:200px;overflow-y:auto;}
+.emoji-opt{font-size:20px;text-align:center;cursor:pointer;padding:5px;border-radius:6px;
   transition:background .15s;-webkit-tap-highlight-color:transparent;}
 .emoji-opt:hover{background:rgba(255,255,255,.1);}
 .settings-btn{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;
@@ -427,9 +429,6 @@ select option{background:var(--surface2);}
     </div>
     <div class="modal-body">
       <div id="member-manage-list"></div>
-      <div id="emoji-picker-wrap" style="display:none">
-        <div class="emoji-picker" id="emoji-picker"></div>
-      </div>
       <button class="btn-add-member" onclick="addNewMember()">＋ 新增成員</button>
     </div>
     <div class="modal-footer">
@@ -516,6 +515,14 @@ function init(){
   document.getElementById('tab-settle').addEventListener('change', e => {
     if(e.target.classList.contains('txn-cb') && e.target.dataset.key){
       toggleCheck(e.target.dataset.key);
+    }
+  });
+
+  // 點任何地方關閉 emoji picker
+  document.addEventListener('click', e => {
+    const float = document.getElementById('emoji-float');
+    if(float && float.style.display !== 'none' && !e.target.closest('.member-emoji-btn') && !e.target.closest('#emoji-float')){
+      closeEmojiFloat();
     }
   });
 
@@ -1064,7 +1071,7 @@ function openMemberModal(){
 
 function closeMemberModal(){
   document.getElementById('member-modal').classList.remove('open');
-  emojiTargetIdx = null;
+  closeEmojiFloat();
 }
 
 function closeMemberModalOverlay(e){
@@ -1072,6 +1079,7 @@ function closeMemberModalOverlay(e){
 }
 
 function renderMemberList(){
+  closeEmojiFloat(); // 重繪前先關閉 picker
   const list = document.getElementById('member-manage-list');
   list.innerHTML = '';
   draftMembers.forEach((m, idx) => {
@@ -1085,7 +1093,10 @@ function renderMemberList(){
   });
 
   list.querySelectorAll('.member-emoji-btn').forEach(btn => {
-    btn.addEventListener('click', () => toggleEmojiPicker(parseInt(btn.dataset.idx), btn));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEmojiPicker(parseInt(btn.dataset.idx), btn);
+    });
   });
   list.querySelectorAll('.member-name-input').forEach(inp => {
     inp.addEventListener('input', () => { draftMembers[parseInt(inp.dataset.idx)].name = inp.value; });
@@ -1099,31 +1110,44 @@ function renderMemberList(){
   });
 }
 
+function closeEmojiFloat(){
+  const f = document.getElementById('emoji-float');
+  if(f) f.style.display = 'none';
+  emojiTargetIdx = null;
+}
+
 function toggleEmojiPicker(idx, anchorBtn){
-  const wrap = document.getElementById('emoji-picker-wrap');
-  if(emojiTargetIdx === idx && wrap.style.display !== 'none'){
-    wrap.style.display = 'none'; emojiTargetIdx = null; return;
+  const float = document.getElementById('emoji-float');
+
+  // 點同一個按鈕 → 關閉
+  if(emojiTargetIdx === idx && float.style.display !== 'none'){
+    closeEmojiFloat(); return;
   }
   emojiTargetIdx = idx;
 
-  // 建立 emoji 格
-  const picker = document.getElementById('emoji-picker');
-  picker.innerHTML = '';
+  // 建立 emoji 選項
+  float.innerHTML = '';
   EMOJIS.forEach(e => {
     const d = document.createElement('div');
     d.className = 'emoji-opt'; d.textContent = e;
-    d.addEventListener('click', () => {
+    d.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       draftMembers[emojiTargetIdx].emoji = e;
-      wrap.style.display = 'none'; emojiTargetIdx = null;
-      renderMemberList();
+      closeEmojiFloat();
+      // 只更新該按鈕的 emoji，不重建整個列表
+      const btns = document.querySelectorAll('#member-manage-list .member-emoji-btn');
+      if(btns[idx]) btns[idx].textContent = e;
     });
-    picker.appendChild(d);
+    float.appendChild(d);
   });
 
-  // 把 picker 插到該行下方
-  const row = anchorBtn.closest('.member-manage-row');
-  row.parentElement.insertBefore(wrap, row.nextSibling);
-  wrap.style.display = 'block';
+  // 定位到按鈕旁邊
+  const rect = anchorBtn.getBoundingClientRect();
+  const top = rect.bottom + 6;
+  const left = Math.min(rect.left, window.innerWidth - 290);
+  float.style.top = top + 'px';
+  float.style.left = left + 'px';
+  float.style.display = 'grid';
 }
 
 function addNewMember(){
@@ -1267,5 +1291,8 @@ async function saveEdit(){
 
 init();
 </script>
+<!-- 全域浮動 Emoji Picker -->
+<div id="emoji-float" style="display:none" class="emoji-picker-float"></div>
+
 </body>
 </html>
